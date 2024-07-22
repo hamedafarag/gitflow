@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Get the name of the current branch
+current_branch=$(git symbolic-ref --short HEAD)
+
+# Define allowed base branches and required prefixes
+allowed_base_branch_develop="develop"
+allowed_base_branch_master="main"
+develop_prefixes=("feature/" "bugfix/")
+master_prefixes=("hotfix/" "release/")
+
+# Function to check if a branch name starts with an allowed prefix
+function check_prefix {
+    local branch=$1
+    shift
+    local prefixes=("$@")
+    for prefix in "${prefixes[@]}"; do
+        if [[ "$branch" == ${prefix}* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Check if the current branch is the allowed base branch
+if [ "$current_branch" == "$allowed_base_branch_develop" ] || [ "$current_branch" == "$allowed_base_branch_master" ]; then
+    exit 0
+else
+    # Check if the branch is created from develop with required prefixes
+    if git merge-base --is-ancestor "$allowed_base_branch_develop" "$current_branch"; then
+        if ! check_prefix "$current_branch" "${develop_prefixes[@]}"; then
+            echo "Error: Branches created from '$allowed_base_branch_develop' must start with one of the following prefixes: ${develop_prefixes[*]}"
+            exit 1
+        fi
+    # Check if the branch is created from master with required prefixes
+    elif git merge-base --is-ancestor "$allowed_base_branch_master" "$current_branch"; then
+        if ! check_prefix "$current_branch" "${master_prefixes[@]}"; then
+            echo "Error: Branches created from '$allowed_base_branch_master' must start with one of the following prefixes: ${master_prefixes[*]}"
+            exit 1
+        fi
+    fi
+fi
